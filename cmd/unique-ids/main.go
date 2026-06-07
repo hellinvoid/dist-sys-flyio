@@ -10,10 +10,14 @@ import (
 )
 
 /*
-	Simplest valid approach
+	Simple approach
 	node_id-{ATOMIC_counter}
 	node_id can be anything unique to the node
 	in this case msg.Dest
+	
+	Cons:
+	!!	Server restart will reset the counter
+
 */
 
 func main() {
