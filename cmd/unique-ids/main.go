@@ -2,28 +2,29 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
-	"sync/atomic"
 
+	"github.com/hellinvoid/dist-sys-flyio/internal/snowflake"
 	maelstrom "github.com/jepsen-io/maelstrom/demo/go"
 )
 
 /*
-	Simple approach
-	node_id-{ATOMIC_counter}
-	node_id can be anything unique to the node
-	in this case msg.Dest
-	
-	Cons:
-	!!	Server restart will reset the counter
+	Snowflake method
+	timestamp-node_id-counter
 
+	Cons:
+	!!	Clock synchronization
 */
 
 func main() {
-	n := maelstrom.NewNode()
-	var counter atomic.Uint64
+	n := snowflake.NewNode()
+
+	go n.Generate()
+
 	n.Handle("generate", func(msg maelstrom.Message) error {
+
+		n.SetNodeId(msg.Dest)
+
 		var body map[string]any
 
 		if err := json.Unmarshal(msg.Body, &body); err != nil {
@@ -31,8 +32,7 @@ func main() {
 		}
 
 		body["type"] = "generate_ok"
-
-		body["id"] = fmt.Sprintf("%s-%d", msg.Dest, counter.Add(1))
+		body["id"] = n.GetUniqueId()
 
 		return n.Reply(msg, body)
 	})
