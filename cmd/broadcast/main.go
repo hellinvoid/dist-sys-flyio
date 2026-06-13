@@ -1,15 +1,17 @@
 package main
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"log"
 	"sync"
 
+	"github.com/hellinvoid/dist-sys-flyio/internal/snowflake"
 	maelstrom "github.com/jepsen-io/maelstrom/demo/go"
 )
 
 func main() {
+	idgen := snowflake.NewIdGenerator()
+
 	var once sync.Once
 
 	var mu sync.Mutex
@@ -18,7 +20,7 @@ func main() {
 	n := maelstrom.NewNode()
 	next := make([]string, 0)
 
-	seenGossipUid := map[string]any{}
+	seenGossipUid := map[float64]any{}
 
 	n.Handle("broadcast", func(msg maelstrom.Message) error {
 		var body map[string]any
@@ -32,7 +34,7 @@ func main() {
 		arr = append(arr, val)
 		mu.Unlock()
 
-		go SendNewGossip(n, next, val)
+		go SendNewGossip(n, next, val, idgen)
 
 		body["type"] = "broadcast_ok"
 
@@ -78,7 +80,7 @@ func main() {
 				}
 			}
 			for _, val := range arr {
-				go SendNewGossip(n, next, val)
+				go SendNewGossip(n, next, val, idgen)
 			}
 
 			mu.Unlock()
@@ -102,7 +104,7 @@ func main() {
 		}
 
 		gVal := body["gossip_val"].(float64)
-		gUid := body["gossip_uid"].(string)
+		gUid := body["gossip_uid"].(float64)
 
 		mu.Lock()
 		if _, ok := seenGossipUid[gUid]; ok {
@@ -127,10 +129,10 @@ func main() {
 	}
 }
 
-func SendNewGossip(n *maelstrom.Node, next []string, val float64) {
+func SendNewGossip(n *maelstrom.Node, next []string, val float64, idgen *snowflake.IdGenerator) {
 	gossipBody := make(map[string]any)
 	gossipBody["type"] = "gossip"
-	gossipBody["gossip_uid"] = rand.Text()
+	gossipBody["gossip_uid"] = idgen.GetUniqueId(n.ID())
 	gossipBody["gossip_val"] = val
 	for _, nxt := range next {
 		n.Send(nxt, gossipBody)
