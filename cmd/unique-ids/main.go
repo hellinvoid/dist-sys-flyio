@@ -17,13 +17,10 @@ import (
 */
 
 func main() {
-	n := snowflake.NewNode()
-
-	go n.Generate()
+	n := maelstrom.NewNode()
+	idgen := snowflake.NewIdGenerator()
 
 	n.Handle("generate", func(msg maelstrom.Message) error {
-
-		n.SetNodeId(msg.Dest)
 
 		var body map[string]any
 
@@ -32,7 +29,7 @@ func main() {
 		}
 
 		body["type"] = "generate_ok"
-		body["id"] = n.GetUniqueId()
+		body["id"] = idgen.GetUniqueId(n.ID())
 
 		return n.Reply(msg, body)
 	})
