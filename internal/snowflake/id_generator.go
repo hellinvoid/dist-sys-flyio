@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
-	maelstrom "github.com/jepsen-io/maelstrom/demo/go"
 )
 
 /*
@@ -24,9 +22,7 @@ var (
 	timestampShiftBits = nodeIdBits + counterBits
 )
 
-type Node struct {
-	*maelstrom.Node
-
+type IdGenerator struct {
 	idCh chan uint64
 
 	currTimestamp uint64
@@ -36,45 +32,46 @@ type Node struct {
 	once sync.Once
 }
 
-func NewNode() *Node {
-	return &Node{
-		Node: maelstrom.NewNode(),
+func NewIdGenerator() *IdGenerator {
+	return &IdGenerator{
 		idCh: make(chan uint64),
 		once: sync.Once{},
 	}
 }
 
-func (n *Node) Generate() {
+func (idgen *IdGenerator) generate() {
 	var currId uint64
 	for {
 		currId = 0
 		currTimestamp := uint64(time.Since(start))
 
-		if currTimestamp == n.currTimestamp {
-			n.counter++
+		if currTimestamp == idgen.currTimestamp {
+			idgen.counter++
 		} else {
-			n.currTimestamp = currTimestamp
-			n.counter = 0
+			idgen.currTimestamp = currTimestamp
+			idgen.counter = 0
 		}
 
 		currId += currTimestamp << timestampShiftBits
-		currId += n.nodeId << counterBits
-		currId += n.counter
+		currId += idgen.nodeId << counterBits
+		currId += idgen.counter
 
-		n.idCh <- currId
+		idgen.idCh <- currId
 	}
 }
 
-func (n *Node) SetNodeId(nodeIdStr string) {
-	n.once.Do(func() {
+func (idgen *IdGenerator) startGenerator(nodeIdStr string) {
+	idgen.once.Do(func() {
 		nodeIdInt, _ := strconv.Atoi(nodeIdStr[1:])
-		n.nodeId = uint64(nodeIdInt)
+		idgen.nodeId = uint64(nodeIdInt)
 		if nodeIdInt > (1<<nodeIdBits)-1 {
 			log.Fatalf("Node Id too large")
 		}
+		go idgen.generate()
 	})
 }
 
-func (n *Node) GetUniqueId() uint64 {
-	return <-n.idCh
+func (idgen *IdGenerator) GetUniqueId(nodeIdStr string) uint64 {
+	idgen.startGenerator(nodeIdStr)
+	return <-idgen.idCh
 }
