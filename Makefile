@@ -1,2 +1,2 @@
 build:
-	go build -o "bin/$(APP)" "./cmd/$(APP)"
+	go build -o "bin/maelstrom-$(app)" "./cmd/$(app)"
